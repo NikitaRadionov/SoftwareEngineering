@@ -1,0 +1,6 @@
+[
+  { "type": "BankAccount", "id": "53817460-0566-4828-ae0e-2f3cebaee7be", "name": "6", "balance": 1 },
+  { "type": "BankAccount", "id": "1622ff34-b935-4c30-9f58-32641e1aef72", "name": "9", "balance": 1 },
+  { "type": "BankAccount", "id": "a52b9e44-0fc4-4956-86b5-da927bc9d6b8", "name": "100", "balance": 4 },
+  { "type": "BankAccount", "id": "aa419a2d-562a-4a89-9cd8-c5b80ae6a9a7", "name": "OpDesc", "balance": 8 }
+]
