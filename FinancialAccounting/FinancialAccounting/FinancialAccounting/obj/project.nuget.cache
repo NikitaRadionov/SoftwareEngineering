@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "+ODmV/zDvVMZkCof7/51RGtterypzLdutcVDMQnosbzDY51NIA8glnewWik4IWZ8x7VFClBoEfUqFGclqe1hPA==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Nikita\\source\\repos\\FinancialAccounting\\FinancialAccounting\\FinancialAccounting.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Nikita\\.nuget\\packages\\microsoft.extensions.dependencyinjection\\9.0.3\\microsoft.extensions.dependencyinjection.9.0.3.nupkg.sha512",
+    "C:\\Users\\Nikita\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\9.0.3\\microsoft.extensions.dependencyinjection.abstractions.9.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

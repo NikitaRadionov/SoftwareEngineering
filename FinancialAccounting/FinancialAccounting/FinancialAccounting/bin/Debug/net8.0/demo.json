@@ -1,0 +1,9 @@
+[
+  { "type": "BankAccount", "id": "ced91bcc-1356-4d99-9512-4aa3f2c3e258", "name": "мой", "balance": 1001 },
+  { "type": "Category", "id": "73174f78-b7c4-4a08-b5c5-63018f128bc1", "name": "Кафе", "opType": "Expense" },
+  { "type": "Category", "id": "fb0a33db-68f4-45ce-aacb-715287d44c0f", "name": "ЗП", "opType": "Income" },
+  { "type": "Category", "id": "73174f78-b7c4-4a08-b5c5-63018f128bc1", "name": "Кафе", "opType": "Expense" },
+  { "type": "Category", "id": "fb0a33db-68f4-45ce-aacb-715287d44c0f", "name": "ЗП", "opType": "Income" },
+  { "type": "Operation", "id": "c1697694-6478-4d92-aded-231caa3ffa69", "opType": "Income", "amount": 500 },
+  { "type": "Operation", "id": "c1697694-6478-4d92-aded-231caa3ffa69", "opType": "Income", "amount": 500 }
+]

@@ -1,0 +1,7 @@
+Account;ced91bcc-1356-4d99-9512-4aa3f2c3e258;мой;1001
+Category;73174f78-b7c4-4a08-b5c5-63018f128bc1;Expense;Кафе
+Category;fb0a33db-68f4-45ce-aacb-715287d44c0f;Income;ЗП
+Category;73174f78-b7c4-4a08-b5c5-63018f128bc1;Expense;Кафе
+Category;fb0a33db-68f4-45ce-aacb-715287d44c0f;Income;ЗП
+Operation;c1697694-6478-4d92-aded-231caa3ffa69;Income;500;2025-03-20;ced91bcc-1356-4d99-9512-4aa3f2c3e258;73174f78-b7c4-4a08-b5c5-63018f128bc1;
+Operation;c1697694-6478-4d92-aded-231caa3ffa69;Income;500;2025-03-09;ced91bcc-1356-4d99-9512-4aa3f2c3e258;fb0a33db-68f4-45ce-aacb-715287d44c0f;ЗП за ноябрь
