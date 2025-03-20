@@ -1,9 +1,13 @@
+using FinancialAccounting;
 using FinancialAccounting.Commands;
+using FinancialAccounting.DI;
 using FinancialAccounting.Domain;
 using FinancialAccounting.Exporters;
 using FinancialAccounting.Facades;
 using FinancialAccounting.Factories;
+using FinancialAccounting.Importers;
 using FinancialAccounting.Proxies;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using System.Text.Json;
 
@@ -211,6 +215,117 @@ namespace Tests
             Assert.Equal(200m, totalExpense);
             Assert.Equal(1000m + 500m - 200m, totalBalance);
         }
+
+        [Fact]
+        public void AnalyticsFacade_ReturnsZero_WhenNoAccountsOrOperations()
+        {
+            var analytics = new AnalyticsFacade(_operationFacade, _accountFacade);
+
+            decimal totalIncome = analytics.GetTotalByType(OperationType.Income);
+            decimal totalExpense = analytics.GetTotalByType(OperationType.Expense);
+            decimal totalBalance = analytics.GetTotalBalance();
+
+            Assert.Equal(0m, totalIncome);
+            Assert.Equal(0m, totalExpense);
+            Assert.Equal(0m, totalBalance);
+        }
+
+        [Fact]
+        public void BankAccountFacade_GetAccounts_ReturnsCorrectList()
+        {
+            var account1 = _accountFacade.CreateAccount("Acc1", 1000m);
+            var account2 = _accountFacade.CreateAccount("Acc2", 2000m);
+
+            var accounts = _accountFacade.GetAccounts();
+
+            Assert.Contains(account1, accounts);
+            Assert.Contains(account2, accounts);
+            Assert.Equal(2, accounts.Count());
+        }
+
+        [Fact]
+        public void OperationFacade_GetOperations_ReturnsFilteredOperations()
+        {
+            var account = _accountFacade.CreateAccount("Acc", 1000m);
+            var categoryIncome = _categoryFacade.CreateCategory(OperationType.Income, "Salary");
+            var categoryExpense = _categoryFacade.CreateCategory(OperationType.Expense, "Food");
+
+            var incomeOp = _operationFacade.CreateOperation(OperationType.Income, account.Id, 500m, DateTime.Now, "Salary", categoryIncome.Id);
+            var expenseOp = _operationFacade.CreateOperation(OperationType.Expense, account.Id, 200m, DateTime.Now, "Lunch", categoryExpense.Id);
+
+            var operations = _operationFacade.GetOperations().ToList();
+
+            Assert.Contains(incomeOp, operations);
+            Assert.Contains(expenseOp, operations);
+            Assert.Equal(2, operations.Count);
+        }
+
+        [Fact]
+        public void CategoryFacade_GetCategories_ReturnsCorrectList()
+        {
+            var category1 = _categoryFacade.CreateCategory(OperationType.Income, "Bonus");
+            var category2 = _categoryFacade.CreateCategory(OperationType.Expense, "Groceries");
+
+            var categories = _categoryFacade.GetCategories();
+
+            Assert.Contains(category1, categories);
+            Assert.Contains(category2, categories);
+            Assert.Equal(2, categories.Count());
+        }
+
+        [Fact]
+        public void OperationFacade_CreateOperation_WithUnknownAccount_Throws()
+        {
+            var unknownAccountId = Guid.NewGuid();
+            var category = _categoryFacade.CreateCategory(OperationType.Expense, "UnknownAccCat");
+
+            Assert.Throws<ArgumentException>(() =>
+                _operationFacade.CreateOperation(OperationType.Expense, unknownAccountId, 100m, DateTime.Now, "Desc", category.Id));
+        }
+
+        [Fact]
+        public void OperationFacade_CreateOperation_WithUnknownCategory_Throws()
+        {
+            var account = _accountFacade.CreateAccount("RealAcc", 1000m);
+            var unknownCategoryId = Guid.NewGuid();
+
+            Assert.Throws<ArgumentException>(() =>
+                _operationFacade.CreateOperation(OperationType.Expense, account.Id, 100m, DateTime.Now, "Desc", unknownCategoryId));
+        }
+
+        [Fact]
+        public void OperationFacade_CreateOperation_WithZeroAmount_Throws()
+        {
+            var account = _accountFacade.CreateAccount("ZeroAcc", 500m);
+            var category = _categoryFacade.CreateCategory(OperationType.Expense, "ZeroCat");
+
+            Assert.Throws<ArgumentException>(() =>
+                _operationFacade.CreateOperation(OperationType.Expense, account.Id, 0m, DateTime.Now, "ZeroSum", category.Id));
+        }
+
+        [Fact]
+        public void OperationFacade_CreateOperation_WithNegativeAmount_Throws()
+        {
+            var account = _accountFacade.CreateAccount("NegAcc", 500m);
+            var category = _categoryFacade.CreateCategory(OperationType.Expense, "NegCat");
+
+            Assert.Throws<ArgumentException>(() =>
+                _operationFacade.CreateOperation(OperationType.Expense, account.Id, -50m, DateTime.Now, "NegSum", category.Id));
+        }
+
+        [Fact]
+        public void CategoryFacade_CreateCategory_WithEmptyName_Throws()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                _categoryFacade.CreateCategory(OperationType.Income, ""));
+        }
+
+        [Fact]
+        public void CategoryFacade_CreateCategory_WithWhitespaceName_Throws()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                _categoryFacade.CreateCategory(OperationType.Income, "   "));
+        }
     }
 
     #endregion
@@ -257,6 +372,30 @@ namespace Tests
 
     public class ImporterExporterTests
     {
+        public class TestJsonImporter : JsonImporter
+        {
+            public TestJsonImporter(BankAccountFacade accountFacade, CategoryFacade categoryFacade, OperationFacade operationFacade)
+                : base(accountFacade, categoryFacade, operationFacade)
+            { }
+
+            public void TestParseAndPopulate(string content)
+            {
+                base.ParseAndPopulate(content);
+            }
+        }
+
+        public class TestCsvImporter : CsvImporter
+        {
+            public TestCsvImporter(BankAccountFacade accountFacade, CategoryFacade categoryFacade, OperationFacade operationFacade)
+                : base(accountFacade, categoryFacade, operationFacade)
+            { }
+
+            public void TestParseAndPopulate(string content)
+            {
+                base.ParseAndPopulate(content);
+            }
+        }
+
         private readonly FinancialFactory _factory = new FinancialFactory();
         private readonly InMemoryBankAccountRepository _baseRepository = new InMemoryBankAccountRepository();
         private readonly BankAccountRepositoryProxy _proxy;
@@ -265,6 +404,9 @@ namespace Tests
         private readonly OperationFacade _operationFacade;
         private readonly ExporterService _exporterService;
 
+        private readonly TestCsvImporter _csvImporter;
+        private readonly TestJsonImporter _jsonImporter;
+
         public ImporterExporterTests()
         {
             _proxy = new BankAccountRepositoryProxy(_baseRepository);
@@ -272,6 +414,9 @@ namespace Tests
             _categoryFacade = new CategoryFacade(_factory);
             _operationFacade = new OperationFacade(_factory, _accountFacade, _categoryFacade);
             _exporterService = new ExporterService();
+
+            _csvImporter = new TestCsvImporter(_accountFacade, _categoryFacade, _operationFacade);
+            _jsonImporter = new TestJsonImporter(_accountFacade, _categoryFacade, _operationFacade);
         }
 
         [Fact]
@@ -358,6 +503,346 @@ namespace Tests
             Assert.Contains("Account;", csv);
             Assert.Contains("Category;", csv);
             Assert.Contains("Operation;", csv);
+        }
+
+        [Fact]
+        public void CsvImporter_UnknownLineType_IsSkipped()
+        {
+            string content = "UnknownType;id;SomeName;100\n";
+
+            _csvImporter.TestParseAndPopulate(content);
+
+            Assert.Empty(_accountFacade.GetAccounts());
+            Assert.Empty(_categoryFacade.GetCategories());
+            Assert.Empty(_operationFacade.GetOperations());
+        }
+
+        [Fact]
+        public void CsvImporter_InsufficientColumnsForAccount_SkipsLine()
+        {
+            string content = "Account;OnlyTwoCols\n";
+            _csvImporter.TestParseAndPopulate(content);
+            Assert.Empty(_accountFacade.GetAccounts());
+        }
+
+        [Fact]
+        public void CsvImporter_InsufficientColumnsForOperation_SkipsLine()
+        {
+            string content = "Operation;id;income;100\n";
+            _csvImporter.TestParseAndPopulate(content);
+            Assert.Empty(_operationFacade.GetOperations());
+        }
+
+        [Fact]
+        public void CsvImporter_InvalidGuid_SkipsOperation()
+        {
+            string content = "Operation;cccccccc-cccc-cccc-cccc-cccccccccccc;income;850;2025-03-09;NOTAGUID;aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa;Test operation\n";
+            _csvImporter.TestParseAndPopulate(content);
+            Assert.Empty(_operationFacade.GetOperations());
+        }
+
+        [Fact]
+        public void JsonImporter_UnknownType_SkipsObject()
+        {
+            string content = @"[
+                { ""type"": ""UnknownThing"", ""id"": ""11111111-1111-1111-1111-111111111111"", ""name"": ""???"" }
+            ]";
+
+            _jsonImporter.TestParseAndPopulate(content);
+
+            Assert.Empty(_accountFacade.GetAccounts());
+            Assert.Empty(_categoryFacade.GetCategories());
+            Assert.Empty(_operationFacade.GetOperations());
+        }
+
+        [Fact]
+        public void JsonImporter_MissingFields_SkipsObject()
+        {
+            string content = @"[
+              { ""type"": ""BankAccount"", ""id"": ""11111111-1111-1111-1111-111111111111"", ""name"": ""NoBalance"" }
+            ]";
+
+            _jsonImporter.TestParseAndPopulate(content);
+
+            Assert.Empty(_accountFacade.GetAccounts());
+        }
+
+        [Fact]
+        public void CsvImporter_ValidOperationLine_CallsImportOperation()
+        {
+            var accountId = Guid.NewGuid().ToString();
+            var categoryId = Guid.NewGuid().ToString();
+
+            _accountFacade.ImportAccount(accountId, "CsvAcc", 1000m);
+            _categoryFacade.ImportCategory(categoryId, OperationType.Income, "SalaryCat");
+
+            string line =
+                "Operation;99999999-9999-9999-9999-999999999999;income;850;2025-03-09;" +
+                $"{accountId};{categoryId};Test operation\n";
+
+            _csvImporter.TestParseAndPopulate(line);
+
+            var operations = _operationFacade.GetOperations().ToList();
+            Assert.Single(operations);
+            Assert.Equal(Guid.Parse("99999999-9999-9999-9999-999999999999"), operations[0].Id);
+            Assert.Equal(OperationType.Income, operations[0].Type);
+            Assert.Equal(850m, operations[0].Amount);
+
+            Assert.Equal(Guid.Parse(accountId), operations[0].BankAccountId);
+            Assert.Equal(Guid.Parse(categoryId), operations[0].CategoryId);
+        }
+
+        [Fact]
+        public void JsonImporter_ValidOperation_CallsImportOperation()
+        {
+            var accountId = Guid.NewGuid().ToString();
+            var categoryId = Guid.NewGuid().ToString();
+
+            _accountFacade.ImportAccount(accountId, "JsonAcc", 500m);
+            _categoryFacade.ImportCategory(categoryId, OperationType.Expense, "JsonCat");
+
+            string content = $@"
+            [
+              {{
+                ""type"": ""Operation"",
+                ""id"": ""88888888-8888-8888-8888-888888888888"",
+                ""opType"": ""Expense"",
+                ""amount"": 999
+              }}
+            ]";
+
+            _jsonImporter.TestParseAndPopulate(content);
+
+            var operations = _operationFacade.GetOperations().ToList();
+            Assert.Single(operations);
+            Assert.Equal(Guid.Parse("88888888-8888-8888-8888-888888888888"), operations[0].Id);
+            Assert.Equal(OperationType.Expense, operations[0].Type);
+            Assert.Equal(999m, operations[0].Amount);
+
+            Assert.Equal(Guid.Parse(accountId), operations[0].BankAccountId);
+            Assert.Equal(Guid.Parse(categoryId), operations[0].CategoryId);
+        }
+    }
+
+    #endregion
+
+    #region DI and Negative Importer Tests
+
+    public class DIContainerTests
+    {
+        [Fact]
+        public void DependencyInjection_ResolvesAllServices()
+        {
+            var serviceProvider = FinancialAccounting.DI.DependencyInjection.ConfigureServices();
+            Assert.NotNull(serviceProvider.GetRequiredService<IBankAccountFactory>());
+            Assert.NotNull(serviceProvider.GetRequiredService<ICategoryFactory>());
+            Assert.NotNull(serviceProvider.GetRequiredService<IOperationFactory>());
+            Assert.NotNull(serviceProvider.GetRequiredService<BankAccountFacade>());
+            Assert.NotNull(serviceProvider.GetRequiredService<CategoryFacade>());
+            Assert.NotNull(serviceProvider.GetRequiredService<OperationFacade>());
+            Assert.NotNull(serviceProvider.GetRequiredService<AnalyticsFacade>());
+            Assert.NotNull(serviceProvider.GetRequiredService<ExporterService>());
+            Assert.NotNull(serviceProvider.GetRequiredService<JsonImporter>());
+            Assert.NotNull(serviceProvider.GetRequiredService<CsvImporter>());
+            Assert.NotNull(serviceProvider.GetRequiredService<AppRunner>());
+        }
+    }
+
+    public class TestJsonImporter : JsonImporter
+    {
+        public TestJsonImporter(BankAccountFacade accountFacade, CategoryFacade categoryFacade, OperationFacade operationFacade)
+            : base(accountFacade, categoryFacade, operationFacade)
+        { }
+
+        public void TestParseAndPopulate(string content)
+        {
+            base.ParseAndPopulate(content);
+        }
+    }
+
+    public class TestCsvImporter : CsvImporter
+    {
+        public TestCsvImporter(BankAccountFacade accountFacade, CategoryFacade categoryFacade, OperationFacade operationFacade)
+            : base(accountFacade, categoryFacade, operationFacade)
+        { }
+
+        public void TestParseAndPopulate(string content)
+        {
+            base.ParseAndPopulate(content);
+        }
+    }
+
+    public class NegativeImporterTests
+    {
+        private readonly FinancialFactory _factory = new FinancialFactory();
+
+        [Fact]
+        public void CsvImporter_EmptyContent_CreatesNoObjects()
+        {
+            var baseRepository = new InMemoryBankAccountRepository();
+            var proxy = new BankAccountRepositoryProxy(baseRepository);
+            var accountFacade = new BankAccountFacade(_factory, proxy);
+            var categoryFacade = new CategoryFacade(_factory);
+            var operationFacade = new OperationFacade(_factory, accountFacade, categoryFacade);
+            var importer = new TestCsvImporter(accountFacade, categoryFacade, operationFacade);
+            importer.TestParseAndPopulate("");
+            Assert.Empty(accountFacade.GetAccounts());
+            Assert.Empty(categoryFacade.GetCategories());
+            Assert.Empty(operationFacade.GetOperations());
+        }
+    }
+
+    #endregion
+
+    #region Program and AppRunner Tests
+
+    public class ProgramAppRunnerTests
+    {
+        public class FiniteStringReader : TextReader
+        {
+            private readonly Queue<string> _lines;
+
+            public FiniteStringReader(IEnumerable<string> lines)
+            {
+                _lines = new Queue<string>(lines);
+            }
+
+            public override string ReadLine()
+            {
+                if (_lines.Count > 0)
+                    return _lines.Dequeue();
+
+                return "0";
+            }
+        }
+
+        [Fact]
+        public void ProgramMain_ExitImmediately_CoversMainAndAppRunner()
+        {
+            var inputReader = new FiniteStringReader(new string[] { "0" });
+            var output = new StringWriter();
+
+            var originalIn = Console.In;
+            var originalOut = Console.Out;
+
+            try
+            {
+                Console.SetIn(inputReader);
+                Console.SetOut(output);
+
+                Program.Main(Array.Empty<string>());
+
+                Console.Out.Flush();
+                string consoleOutput = output.ToString();
+
+                Assert.Contains("Выберите пункт", consoleOutput);
+            }
+            finally
+            {
+                Console.SetIn(originalIn);
+                Console.SetOut(originalOut);
+            }
+        }
+
+        [Fact]
+        public void ProgramMain_CreateAccountAndExit_CoversPartOfMenu()
+        {
+            var inputLines = new[] { "1", "TestAccount", "100", "0" };
+            var inputReader = new FiniteStringReader(inputLines);
+            var output = new StringWriter();
+
+            var originalIn = Console.In;
+            var originalOut = Console.Out;
+
+            try
+            {
+                Console.SetIn(inputReader);
+                Console.SetOut(output);
+
+                Program.Main(Array.Empty<string>());
+
+                Console.Out.Flush();
+                string consoleOutput = output.ToString();
+
+                Assert.Contains("МЕНЮ", consoleOutput);
+                Assert.Contains("Создан счёт:", consoleOutput);
+            }
+            finally
+            {
+                Console.SetIn(originalIn);
+                Console.SetOut(originalOut);
+            }
+        }
+
+        [Fact]
+        public void AppRunner_Run_FullMenuSequence_CoversAllBranches()
+        {
+            string[] inputLines = new[]
+            {
+                "1",           // Создать счёт
+                "Acc1",        // Название счёта
+                "100",         // Баланс
+                "4",           // Создать категорию
+                "Cat1",        // Название категории
+                "1",           // Тип: Income
+                "6",           // Добавить операцию
+                "1",           // Выбор счёта (первая строка)
+                "1",           // Выбор категории (первая строка)
+                "50",          // Сумма операции
+                "OpDesc",      // Описание операции
+                "8",           // Удалить счёт
+                "1",           // Выбор счёта для удаления
+                "9",           // Удалить категорию
+                "1",           // Выбор категории для удаления
+                "10",          // Удалить операцию
+                "1",           // Выбор операции для удаления
+                "I",           // Импорт из JSON (файл demo.json)
+                "C",           // Импорт из CSV (файл demo.csv)
+                "E",           // Экспорт в JSON
+                "W",           // Экспорт в CSV
+                "A",           // Показать аналитику
+                "0"            // Выход
+            };
+
+            var inputReader = new FiniteStringReader(inputLines);
+            var output = new StringWriter();
+
+            var originalIn = Console.In;
+            var originalOut = Console.Out;
+
+            try
+            {
+                Console.SetIn(inputReader);
+                Console.SetOut(output);
+
+                var serviceProvider = DependencyInjection.ConfigureServices();
+                var appRunner = serviceProvider.GetRequiredService<AppRunner>();
+                appRunner.Run();
+
+                Console.Out.Flush();
+                string consoleOutput = output.ToString();
+
+                Assert.Contains("Выберите пункт", consoleOutput);
+
+                Assert.Contains("Создан счёт:", consoleOutput);
+                Assert.Contains("Создана категория:", consoleOutput);
+                Assert.Contains("Добавлена операция:", consoleOutput);
+
+                Assert.Contains("Счёт удалён.", consoleOutput);
+                Assert.Contains("Категория удалена.", consoleOutput);
+                Assert.Contains("Операция удалена.", consoleOutput);
+
+                Assert.Contains("Импорт из файла", consoleOutput);
+                Assert.Contains("JSON также записан в файл", consoleOutput);
+                Assert.Contains("CSV-файл сохранён", consoleOutput);
+
+                Assert.Contains("Всего доходов:", consoleOutput);
+            }
+            finally
+            {
+                Console.SetIn(originalIn);
+                Console.SetOut(originalOut);
+            }
         }
     }
 
